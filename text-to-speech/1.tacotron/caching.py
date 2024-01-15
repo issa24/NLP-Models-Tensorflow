@@ -10,5 +10,5 @@ if not os.path.exists('mag'):
 wav_files = [f for f in os.listdir(path) if f.endswith('.wav')]
 for fpath in tqdm.tqdm(wav_files):
     fname, mel, mag = load_file(path + fpath)
-    np.save('mel/{}'.format(fname.replace('wav', 'npy')), mel)
-    np.save('mag/{}'.format(fname.replace('wav', 'npy')), mag)
+    np.save(f"mel/{fname.replace('wav', 'npy')}", mel)
+    np.save(f"mag/{fname.replace('wav', 'npy')}", mag)

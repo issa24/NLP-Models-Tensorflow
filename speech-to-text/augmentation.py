@@ -16,7 +16,7 @@ def change_pitch_speech(samples):
     )
     minlen = min(y_pitch_speed.shape[0], tmp.shape[0])
     y_pitch_speed *= 0
-    y_pitch_speed[0:minlen] = tmp[0:minlen]
+    y_pitch_speed[:minlen] = tmp[:minlen]
     return y_pitch_speed
 
 
@@ -61,7 +61,7 @@ def random_augmentation(samples):
         )
         minlen = min(cp.shape[0], tmp.shape[0])
         cp *= 0
-        cp[0:minlen] = tmp[0:minlen]
+        cp[:minlen] = tmp[:minlen]
 
     if np.random.randint(0, 2):
         dyn_change = np.random.uniform(low = 1.5, high = 3)
@@ -79,15 +79,15 @@ def random_augmentation(samples):
         print('timeshift_fac = ', timeshift_fac)
         start = int(cp.shape[0] * timeshift_fac)
         if start > 0:
-            cp = np.pad(cp, (start, 0), mode = 'constant')[0 : cp.shape[0]]
+            cp = np.pad(cp, (start, 0), mode = 'constant')[:cp.shape[0]]
         else:
-            cp = np.pad(cp, (0, -start), mode = 'constant')[0 : cp.shape[0]]
+            cp = np.pad(cp, (0, -start), mode = 'constant')[:cp.shape[0]]
     return cp
 
 
 with open('train-test.json') as fopen:
     wavs = json.load(fopen)['train']
-    
+
 if not os.path.exists('augment'):
     os.makedirs('augment')
 
@@ -97,55 +97,36 @@ for no, wav in enumerate(wavs):
         if (no + 1) % 100 == 0:
             print(no + 1, root, ext)
         root = root.replace('/', '<>')
-        root = '%s/%s'%('augment', root)
+        root = f'augment/{root}'
         sample_rate, samples = scipy.io.wavfile.read(wav)
         aug = change_pitch_speech(samples)
         librosa.output.write_wav(
-            '%s-1%s' % (root, ext),
-            aug.astype('float32'),
-            sample_rate,
-            norm = True,
+            f'{root}-1{ext}', aug.astype('float32'), sample_rate, norm=True
         )
 
         aug = change_amplitude(samples)
         librosa.output.write_wav(
-            '%s-2%s' % (root, ext),
-            aug.astype('float32'),
-            sample_rate,
-            norm = True,
+            f'{root}-2{ext}', aug.astype('float32'), sample_rate, norm=True
         )
 
         aug = add_noise(samples)
         librosa.output.write_wav(
-            '%s-3%s' % (root, ext),
-            aug.astype('float32'),
-            sample_rate,
-            norm = True,
+            f'{root}-3{ext}', aug.astype('float32'), sample_rate, norm=True
         )
 
         aug = add_hpss(samples)
         librosa.output.write_wav(
-            '%s-4%s' % (root, ext),
-            aug.astype('float32'),
-            sample_rate,
-            norm = True,
+            f'{root}-4{ext}', aug.astype('float32'), sample_rate, norm=True
         )
 
         aug = strech(samples)
         librosa.output.write_wav(
-            '%s-5%s' % (root, ext),
-            aug.astype('float32'),
-            sample_rate,
-            norm = True,
+            f'{root}-5{ext}', aug.astype('float32'), sample_rate, norm=True
         )
 
         aug = random_augmentation(samples)
         librosa.output.write_wav(
-            '%s-6%s' % (root, ext),
-            aug.astype('float32'),
-            sample_rate,
-            norm = True,
+            f'{root}-6{ext}', aug.astype('float32'), sample_rate, norm=True
         )
     except Exception as e:
         print(e)
-        pass

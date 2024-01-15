@@ -74,7 +74,7 @@ def spectrogram2wav(mag):
 
 def griffin_lim(spectrogram):
     X_best = copy.deepcopy(spectrogram)
-    for i in range(iteration_griffin):
+    for _ in range(iteration_griffin):
         X_T = invert_spectrogram(X_best)
         est = librosa.stft(
             X_T, fourier_window_size, hop_length, win_length = win_length
@@ -110,14 +110,14 @@ def text_normalize(text):
         if unicodedata.category(char) != 'Mn'
     )
     text = text.lower()
-    text = re.sub('[^{}]'.format(vocab), ' ', text)
+    text = re.sub(f'[^{vocab}]', ' ', text)
     text = re.sub('[ ]+', ' ', text)
     return text
 
 
 def get_cached(path):
-    mel = 'mel/{}.npy'.format(path)
-    mag = 'mag/{}.npy'.format(path)
+    mel = f'mel/{path}.npy'
+    mag = f'mag/{path}.npy'
     return np.load(mel), np.load(mag)
 
 def plot_alignment(alignment):
@@ -127,4 +127,4 @@ def plot_alignment(alignment):
     plt.show()
 
 char2idx = {char: idx for idx, char in enumerate(vocab)}
-idx2char = {idx: char for idx, char in enumerate(vocab)}
+idx2char = dict(enumerate(vocab))

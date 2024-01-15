@@ -28,8 +28,7 @@ def separate_dataset(trainset, ratio = 0.5):
         for n in range(len(data_)):
             data_[n] = clearstring(data_[n])
         datastring += data_
-        for n in range(len(data_)):
-            datatarget.append(trainset.target[i])
+        datatarget.extend(trainset.target[i] for _ in range(len(data_)))
     return datastring, datatarget
 
 
@@ -39,7 +38,7 @@ def build_dataset(words, n_words):
     dictionary = dict()
     for word, _ in count:
         dictionary[word] = len(dictionary)
-    data = list()
+    data = []
     unk_count = 0
     for word in words:
         index = dictionary.get(word, 0)

@@ -26,11 +26,9 @@ class PointerGeneratorGreedyEmbeddingHelper(
         # Outputs are logits, use argmax to get the most probable id
         if not isinstance(outputs, ops.Tensor):
             raise TypeError(
-                'Expected outputs to be a single Tensor, got: %s'
-                % type(outputs)
+                f'Expected outputs to be a single Tensor, got: {type(outputs)}'
             )
-        sample_ids = tf.argmax(outputs, axis = -1, output_type = tf.int32)
-        return sample_ids
+        return tf.argmax(outputs, axis = -1, output_type = tf.int32)
 
     def next_inputs(self, time, outputs, state, sample_ids, name = None):
         """next_inputs_fn for GreedyEmbeddingHelper."""
@@ -216,16 +214,13 @@ class PointerGeneratorAttentionWrapper(tf.contrib.seq2seq.AttentionWrapper):
             `batch_size` does not match the output size of the encoder passed
             to the wrapper object at initialization time.
         """
-        with ops.name_scope(
-            type(self).__name__ + 'ZeroState', values = [batch_size]
-        ):
+        with ops.name_scope(f'{type(self).__name__}ZeroState', values = [batch_size]):
             if self._initial_cell_state is not None:
                 cell_state = self._initial_cell_state
             else:
                 cell_state = self._cell.zero_state(batch_size, dtype)
             error_message = (
-                'When calling zero_state of AttentionWrapper %s: '
-                % self._base_name
+                f'When calling zero_state of AttentionWrapper {self._base_name}: '
                 + 'Non-matching batch sizes between the memory '
                 '(encoder output) and the requested batch size.  Are you using '
                 'the BeamSearchDecoder?  If so, make sure your encoder output has '
@@ -295,8 +290,7 @@ class PointerGeneratorAttentionWrapper(tf.contrib.seq2seq.AttentionWrapper):
         """
         if not isinstance(state, tf.contrib.seq2seq.AttentionWrapperState):
             raise TypeError(
-                'Expected state to be instance of AttentionWrapperState. '
-                'Received type %s instead.' % type(state)
+                f'Expected state to be instance of AttentionWrapperState. Received type {type(state)} instead.'
             )
 
         # Step 1: Calculate the true inputs to the cell based on the
@@ -306,14 +300,7 @@ class PointerGeneratorAttentionWrapper(tf.contrib.seq2seq.AttentionWrapper):
         cell_output, next_cell_state = self._cell(cell_inputs, cell_state)
 
         cell_batch_size = cell_output.shape[0].value or tf.shape(cell_output)[0]
-        error_message = (
-            'When applying AttentionWrapper %s: ' % self.name
-            + 'Non-matching batch sizes between the memory '
-            '(encoder output) and the query (decoder output).  Are you using '
-            'the BeamSearchDecoder?  You may need to tile your memory input via '
-            'the tf.contrib.seq2seq.tile_batch function with argument '
-            'multiple=beam_width.'
-        )
+        error_message = f'When applying AttentionWrapper {self.name}: Non-matching batch sizes between the memory (encoder output) and the query (decoder output).  Are you using the BeamSearchDecoder?  You may need to tile your memory input via the tf.contrib.seq2seq.tile_batch function with argument multiple=beam_width.'
         with tf.control_dependencies(
             self._batch_size_checks(cell_batch_size, error_message)
         ):
@@ -326,10 +313,10 @@ class PointerGeneratorAttentionWrapper(tf.contrib.seq2seq.AttentionWrapper):
             previous_alignments = [state.alignments]
             previous_alignment_history = [state.alignment_history]
 
-        all_alignments = []
         all_attentions = []
         all_histories = []
 
+        all_alignments = []
         for i, attention_mechanism in enumerate(self._attention_mechanisms):
             print(attention_mechanism)
             if self.coverage:

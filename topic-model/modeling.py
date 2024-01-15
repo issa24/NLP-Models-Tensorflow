@@ -41,20 +41,17 @@ def embedding_lookup(
             dtype = dtype,
             initializer = initializer,
         )
-        if use_tpu:
-            one_hot_idx = tf.one_hot(x, n_token, dtype = dtype)
-            if one_hot_idx.shape.ndims == 2:
-                return (
-                    tf.einsum('in,nd->id', one_hot_idx, lookup_table),
-                    lookup_table,
-                )
-            else:
-                return (
-                    tf.einsum('ibn,nd->ibd', one_hot_idx, lookup_table),
-                    lookup_table,
-                )
-        else:
+        if not use_tpu:
             return tf.nn.embedding_lookup(lookup_table, x), lookup_table
+        one_hot_idx = tf.one_hot(x, n_token, dtype = dtype)
+        return (
+            (tf.einsum('in,nd->id', one_hot_idx, lookup_table), lookup_table)
+            if one_hot_idx.shape.ndims == 2
+            else (
+                tf.einsum('ibn,nd->ibd', one_hot_idx, lookup_table),
+                lookup_table,
+            )
+        )
 
 
 def positional_embedding(pos_seq, inv_freq, bsz = None):
@@ -85,9 +82,7 @@ def positionwise_ffn(
     elif activation_type == 'gelu':
         activation = gelu
     else:
-        raise ValueError(
-            'Unsupported activation type {}'.format(activation_type)
-        )
+        raise ValueError(f'Unsupported activation type {activation_type}')
 
     output = inp
     with tf.variable_scope(scope, reuse = reuse):
@@ -119,14 +114,12 @@ def positionwise_ffn(
 def head_projection(h, d_model, n_head, d_head, kernel_initializer, name):
     """Project hidden states to a specific head with a 4D-shape."""
     proj_weight = tf.get_variable(
-        '{}/kernel'.format(name),
+        f'{name}/kernel',
         [d_model, n_head, d_head],
-        dtype = h.dtype,
-        initializer = kernel_initializer,
+        dtype=h.dtype,
+        initializer=kernel_initializer,
     )
-    head = tf.einsum('ibh,hnd->ibnd', h, proj_weight)
-
-    return head
+    return tf.einsum('ibh,hnd->ibnd', h, proj_weight)
 
 
 def post_attention(
@@ -151,16 +144,15 @@ def post_attention(
     attn_out = tf.einsum('ibnd,hnd->ibh', attn_vec, proj_o)
 
     attn_out = tf.layers.dropout(attn_out, dropout, training = is_training)
-    if residual:
-        output = tf.contrib.layers.layer_norm(
-            attn_out + h, begin_norm_axis = -1, scope = 'LayerNorm'
+    return (
+        tf.contrib.layers.layer_norm(
+            attn_out + h, begin_norm_axis=-1, scope='LayerNorm'
         )
-    else:
-        output = tf.contrib.layers.layer_norm(
-            attn_out, begin_norm_axis = -1, scope = 'LayerNorm'
+        if residual
+        else tf.contrib.layers.layer_norm(
+            attn_out, begin_norm_axis=-1, scope='LayerNorm'
         )
-
-    return output
+    )
 
 
 def abs_attn_core(
@@ -177,10 +169,7 @@ def abs_attn_core(
     attn_prob = tf.nn.softmax(attn_score, 1)
     attn_prob = tf.layers.dropout(attn_prob, dropatt, training = is_training)
 
-    # attention output
-    attn_vec = tf.einsum('ijbn,jbnd->ibnd', attn_prob, v_head)
-
-    return attn_vec
+    return tf.einsum('ijbn,jbnd->ibnd', attn_prob, v_head)
 
 
 def rel_attn_core(
@@ -224,10 +213,7 @@ def rel_attn_core(
     attn_prob = tf.nn.softmax(attn_score, 1)
     attn_prob = tf.layers.dropout(attn_prob, dropatt, training = is_training)
 
-    # attention output
-    attn_vec = tf.einsum('ijbn,jbnd->ibnd', attn_prob, v_head_h)
-
-    return attn_vec
+    return tf.einsum('ijbn,jbnd->ibnd', attn_prob, v_head_h)
 
 
 def rel_shift(x, klen = -1):
@@ -260,15 +246,14 @@ def _cache_mem(curr_out, prev_mem, mem_len, reuse_len = None):
     """cache hidden states into memory."""
     if mem_len is None or mem_len == 0:
         return None
-    else:
-        if reuse_len is not None and reuse_len > 0:
-            curr_out = curr_out[:reuse_len]
+    if reuse_len is not None and reuse_len > 0:
+        curr_out = curr_out[:reuse_len]
 
-        if prev_mem is None:
-            new_mem = curr_out[-mem_len:]
-        else:
-            new_mem = tf.concat([prev_mem, curr_out], 0)[-mem_len:]
-
+    new_mem = (
+        curr_out[-mem_len:]
+        if prev_mem is None
+        else tf.concat([prev_mem, curr_out], 0)[-mem_len:]
+    )
     return tf.stop_gradient(new_mem)
 
 
@@ -288,7 +273,7 @@ def relative_positional_encoding(
         # beg, end = klen - 1, -1
         beg, end = klen, -1
     else:
-        raise ValueError('Unknown `attn_type` {}.'.format(attn_type))
+        raise ValueError(f'Unknown `attn_type` {attn_type}.')
 
     if bi_data:
         fwd_pos_seq = tf.range(beg, end, -1.0)
@@ -311,16 +296,14 @@ def relative_positional_encoding(
             fwd_pos_emb = positional_embedding(fwd_pos_seq, inv_freq)
             bwd_pos_emb = positional_embedding(bwd_pos_seq, inv_freq)
 
-        pos_emb = tf.concat([fwd_pos_emb, bwd_pos_emb], axis = 1)
+        return tf.concat([fwd_pos_emb, bwd_pos_emb], axis = 1)
     else:
         fwd_pos_seq = tf.range(beg, end, -1.0)
         if dtype is not None and dtype != tf.float32:
             fwd_pos_seq = tf.cast(fwd_pos_seq, dtype = dtype)
         if clamp_len > 0:
             fwd_pos_seq = tf.clip_by_value(fwd_pos_seq, -clamp_len, clamp_len)
-        pos_emb = positional_embedding(fwd_pos_seq, inv_freq, bsz)
-
-    return pos_emb
+        return positional_embedding(fwd_pos_seq, inv_freq, bsz)
 
 
 def multihead_attn(

@@ -180,8 +180,9 @@ def dynamic_decode(decoder,
       ValueError: if `maximum_iterations` is provided but is not a scalar.
     """
     if not isinstance(decoder, Decoder):
-        raise TypeError("Expected decoder to be type Decoder, but saw: %s" %
-                        type(decoder))
+        raise TypeError(
+            f"Expected decoder to be type Decoder, but saw: {type(decoder)}"
+        )
 
     with variable_scope.variable_scope(scope, "decoder") as varscope:
         # Properly cache variable values inside the while_loop
@@ -213,11 +214,10 @@ def dynamic_decode(decoder,
         def _shape(batch_size, from_shape):
             if not isinstance(from_shape, tensor_shape.TensorShape):
                 return tensor_shape.TensorShape(None)
-            else:
-                batch_size = tensor_util.constant_value(
-                    ops.convert_to_tensor(
-                        batch_size, name="batch_size"))
-                return tensor_shape.TensorShape([batch_size]).concatenate(from_shape)
+            batch_size = tensor_util.constant_value(
+                ops.convert_to_tensor(
+                    batch_size, name="batch_size"))
+            return tensor_shape.TensorShape([batch_size]).concatenate(from_shape)
 
         def _create_ta(s, d):
             return tensor_array_ops.TensorArray(

@@ -85,8 +85,7 @@ class EntityNetwork:
         else:
             self.input_encoder_bow()
         self.hidden_state = self.rnn_story()
-        logits = self.output_module()
-        return logits
+        return self.output_module()
 
     def output_module(self):
         p = tf.nn.softmax(
@@ -103,8 +102,7 @@ class EntityNetwork:
         activation = tf.nn.dropout(
             activation, keep_prob = self.dropout_keep_prob
         )
-        y = tf.matmul(activation, self.R) + self.y_bias
-        return y
+        return tf.matmul(activation, self.R) + self.y_bias
 
     def rnn_story(self):
         input_split = tf.split(
@@ -258,8 +256,7 @@ class EntityNetwork:
             tf.matmul(s_t, self.W) + self.h2_bias, axis = 1
         )
         h_candidate = self.activation(
-            h_candidate_part1 + h_candidate_part2,
-            scope = 'h_candidate' + str(i),
+            h_candidate_part1 + h_candidate_part2, scope=f'h_candidate{str(i)}'
         )
 
         h_all = h_all + tf.multiply(g, h_candidate)
@@ -303,11 +300,10 @@ class EntityNetwork:
             staircase = True,
         )
         self.learning_rate_ = learning_rate
-        train_op = tf_contrib.layers.optimize_loss(
+        return tf_contrib.layers.optimize_loss(
             self.cost,
-            global_step = self.global_step,
-            learning_rate = learning_rate,
-            optimizer = 'Adam',
-            clip_gradients = self.clip_gradients,
+            global_step=self.global_step,
+            learning_rate=learning_rate,
+            optimizer='Adam',
+            clip_gradients=self.clip_gradients,
         )
-        return train_op
