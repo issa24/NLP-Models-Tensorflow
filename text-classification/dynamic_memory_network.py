@@ -86,8 +86,7 @@ class DynamicMemoryNetwork:
         self.input_module()
         self.question_module()
         self.episodic_memory_module()
-        logits = self.answer_module()
-        return logits
+        return self.answer_module()
 
     def input_module(self):
         """encode raw texts into vector representation"""
@@ -168,18 +167,17 @@ class DynamicMemoryNetwork:
         y_pred = tf.zeros((self.batch_size, self.hidden_size))
         logits_list = []
         logits_return = None
-        for i in range(steps):
+        for _ in range(steps):
             cell = rnn.GRUCell(self.hidden_size)
             y_previous_q = tf.concat([y_pred, self.query_embedding], axis = 1)
             _, a = cell(y_previous_q, a)
             logits = tf.layers.dense(a, units = self.num_classes)
             logits_list.append(logits)
-        if self.decode_with_sequences:
-            logits_return = tf.stack(logits_list, axis = 1)
-        else:
-            logits_return = logits_list[0]
-
-        return logits_return
+        return (
+            tf.stack(logits_list, axis=1)
+            if self.decode_with_sequences
+            else logits_list[0]
+        )
 
     def gated_gru(self, c_current, h_previous, g_current):
         """
@@ -192,10 +190,9 @@ class DynamicMemoryNetwork:
         h_candidate = self.gru_cell(
             c_current, h_previous, 'gru_candidate_sentence'
         )
-        h_current = tf.multiply(g_current, h_candidate) + tf.multiply(
+        return tf.multiply(g_current, h_candidate) + tf.multiply(
             1 - g_current, h_previous
         )
-        return h_current
 
     def attention_mechanism_parallel(self, c_full, m, q, i):
         """ parallel implemtation of gate function given a list of candidate sentence, a query, and previous memory.
@@ -212,8 +209,8 @@ class DynamicMemoryNetwork:
         c_m_elementwise = tf.multiply(c_full, m)
         c_q_minus = tf.abs(tf.subtract(c_full, q))
         c_m_minus = tf.abs(tf.subtract(c_full, m))
-        c_w_q = self.x1Wx2_parallel(c_full, q, 'c_w_q' + str(i))
-        c_w_m = self.x1Wx2_parallel(c_full, m, 'c_w_m' + str(i))
+        c_w_q = self.x1Wx2_parallel(c_full, q, f'c_w_q{str(i)}')
+        c_w_m = self.x1Wx2_parallel(c_full, m, f'c_w_m{str(i)}')
         q_tile = tf.tile(q, [1, self.story_length, 1])
         m_tile = tf.tile(m, [1, self.story_length, 1])
         z = tf.concat(
@@ -318,14 +315,13 @@ class DynamicMemoryNetwork:
             staircase = True,
         )
         self.learning_rate_ = learning_rate
-        train_op = tf_contrib.layers.optimize_loss(
+        return tf_contrib.layers.optimize_loss(
             self.cost,
-            global_step = self.global_step,
-            learning_rate = learning_rate,
-            optimizer = 'Adam',
-            clip_gradients = self.clip_gradients,
+            global_step=self.global_step,
+            learning_rate=learning_rate,
+            optimizer='Adam',
+            clip_gradients=self.clip_gradients,
         )
-        return train_op
 
     def instantiate_weights(self):
         """define all weights here"""

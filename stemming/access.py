@@ -164,7 +164,7 @@ class MemoryAccess(snt.RNNCore):
       """Returns a linear transformation of `inputs`, followed by a reshape."""
       linear = snt.Linear(first_dim * second_dim, name=name)(inputs)
       if activation is not None:
-        linear = activation(linear, name=name + '_activation')
+        linear = activation(linear, name=f'{name}_activation')
       return tf.reshape(linear, [-1, first_dim, second_dim])
 
     # v_t^i - The vectors to write to memory, for each write head `i`.
@@ -279,7 +279,7 @@ class MemoryAccess(snt.RNNCore):
       read weights for each read head.
     """
     with tf.name_scope(
-        'read_weights', values=[inputs, memory, prev_read_weights, link]):
+          'read_weights', values=[inputs, memory, prev_read_weights, link]):
       # c_t^{r, i} - The content weightings for each read head.
       content_weights = self._read_content_weights_mod(
           memory, inputs['read_content_keys'], inputs['read_content_strengths'])
@@ -295,12 +295,10 @@ class MemoryAccess(snt.RNNCore):
           inputs['read_mode'][:, :, self._num_writes:2 * self._num_writes])
       content_mode = inputs['read_mode'][:, :, 2 * self._num_writes]
 
-      read_weights = (
-          tf.expand_dims(content_mode, 2) * content_weights + tf.reduce_sum(
-              tf.expand_dims(forward_mode, 3) * forward_weights, 2) +
+      return (
+          tf.expand_dims(content_mode, 2) * content_weights +
+          tf.reduce_sum(tf.expand_dims(forward_mode, 3) * forward_weights, 2) +
           tf.reduce_sum(tf.expand_dims(backward_mode, 3) * backward_weights, 2))
-
-      return read_weights
 
   @property
   def state_size(self):

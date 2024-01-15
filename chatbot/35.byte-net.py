@@ -17,14 +17,13 @@ import os
 
 
 def build_dataset(words, n_words, atleast=1):
-    count = [['PAD', 0], ['GO', 1], ['EOS', 2], ['UNK', 3]]
     counter = collections.Counter(words).most_common(n_words)
     counter = [i for i in counter if i[1] >= atleast]
-    count.extend(counter)
+    count = [['PAD', 0], ['GO', 1], ['EOS', 2], ['UNK', 3], *counter]
     dictionary = dict()
     for word, _ in count:
         dictionary[word] = len(dictionary)
-    data = list()
+    data = []
     unk_count = 0
     for word in words:
         index = dictionary.get(word, 0)
@@ -85,36 +84,24 @@ def clean_text(text):
     text = re.sub(r"[-()\"#/@;:<>{}`+=~|.!?,]", "", text)
     return ' '.join([i.strip() for i in filter(None, text.split())])
 
-clean_questions = []
-for question in questions:
-    clean_questions.append(clean_text(question))
-    
-clean_answers = []    
-for answer in answers:
-    clean_answers.append(clean_text(answer))
-    
+clean_questions = [clean_text(question) for question in questions]
+clean_answers = [clean_text(answer) for answer in answers]
 min_line_length = 2
 max_line_length = 5
 short_questions_temp = []
 short_answers_temp = []
 
-i = 0
-for question in clean_questions:
+for i, question in enumerate(clean_questions):
     if len(question.split()) >= min_line_length and len(question.split()) <= max_line_length:
         short_questions_temp.append(question)
         short_answers_temp.append(clean_answers[i])
-    i += 1
-
 short_questions = []
 short_answers = []
 
-i = 0
-for answer in short_answers_temp:
+for i, answer in enumerate(short_answers_temp):
     if len(answer.split()) >= min_line_length and len(answer.split()) <= max_line_length:
         short_answers.append(answer)
         short_questions.append(short_questions_temp[i])
-    i += 1
-
 question_test = short_questions[500:550]
 answer_test = short_answers[500:550]
 short_questions = short_questions[:500]
@@ -131,7 +118,9 @@ print('vocab from size: %d'%(vocabulary_size_from))
 print('Most common words', count_from[4:10])
 print('Sample data', data_from[:10], [rev_dictionary_from[i] for i in data_from[:10]])
 print('filtered vocab size:',len(dictionary_from))
-print("% of vocab used: {}%".format(round(len(dictionary_from)/vocabulary_size_from,4)*100))
+print(
+    f"% of vocab used: {round(len(dictionary_from) / vocabulary_size_from, 4) * 100}%"
+)
 
 
 # In[ ]:
@@ -144,7 +133,9 @@ print('vocab from size: %d'%(vocabulary_size_to))
 print('Most common words', count_to[4:10])
 print('Sample data', data_to[:10], [rev_dictionary_to[i] for i in data_to[:10]])
 print('filtered vocab size:',len(dictionary_to))
-print("% of vocab used: {}%".format(round(len(dictionary_to)/vocabulary_size_to,4)*100))
+print(
+    f"% of vocab used: {round(len(dictionary_to) / vocabulary_size_to, 4) * 100}%"
+)
 
 
 # In[ ]:
@@ -169,9 +160,7 @@ for i in range(len(short_answers)):
 def str_idx(corpus, dic):
     X = []
     for i in corpus:
-        ints = []
-        for k in i.split():
-            ints.append(dic.get(k,UNK))
+        ints = [dic.get(k,UNK) for k in i.split()]
         X.append(ints)
     return X
 
@@ -181,7 +170,7 @@ def pad_sentence_batch(sentence_batch, pad_int, maxlen):
     max_sentence_len = maxlen
     for sentence in sentence_batch:
         padded_seqs.append(sentence + [pad_int] * (max_sentence_len - len(sentence)))
-        seq_lens.append(maxlen)
+        seq_lens.append(max_sentence_len)
     return padded_seqs, seq_lens
 
 
@@ -197,8 +186,8 @@ Y_test = str_idx(answer_test, dictionary_from)
 # In[ ]:
 
 
-maxlen_question = max([len(x) for x in X]) * 2
-maxlen_answer = max([len(y) for y in Y]) * 2
+maxlen_question = max(len(x) for x in X) * 2
+maxlen_answer = max(len(y) for y in Y) * 2
 
 
 # In[ ]:
@@ -230,7 +219,7 @@ def bytenet_residual_block(input_, dilation, layer_no,
                             residual_channels, filter_width, 
                             causal = True):
     block_type = "decoder" if causal else "encoder"
-    block_name = "bytenet_{}_layer_{}_{}".format(block_type, layer_no, dilation)
+    block_name = f"bytenet_{block_type}_layer_{layer_no}_{dilation}"
     with tf.variable_scope(block_name):
         relu1 = tf.nn.relu(layer_normalization(input_))
         conv1 = conv1d(relu1, residual_channels)

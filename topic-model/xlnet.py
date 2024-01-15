@@ -19,7 +19,7 @@ def _get_initializer(FLAGS):
             stddev = FLAGS.init_std, seed = None
         )
     else:
-        raise ValueError('Initializer {} not supported'.format(FLAGS.init))
+        raise ValueError(f'Initializer {FLAGS.init} not supported')
     return initializer
 
 
@@ -74,10 +74,7 @@ class XLNetConfig(object):
 
     def to_json(self, json_path):
         """Save XLNetConfig to a json file."""
-        json_data = {}
-        for key in self.keys:
-            json_data[key] = getattr(self, key)
-
+        json_data = {key: getattr(self, key) for key in self.keys}
         json_dir = os.path.dirname(json_path)
         if not tf.gfile.Exists(json_dir):
             tf.gfile.MakeDirs(json_dir)

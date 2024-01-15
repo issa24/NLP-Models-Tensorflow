@@ -161,7 +161,7 @@ def mask_adaptive_embedding_lookup(
             x_size = tf.shape(x)
             y = tf.zeros([x_size[0], x_size[1], d_proj])
             for i in range(len(cutoff_ends) - 1):
-                with tf.variable_scope('cutoff_{}'.format(i)):
+                with tf.variable_scope(f'cutoff_{i}'):
                     l_idx, r_idx = cutoff_ends[i], cutoff_ends[i + 1]
                     mask = (x >= l_idx) & (x < r_idx)
                     cur_x = tf.boolean_mask(x, mask) - l_idx
@@ -231,12 +231,9 @@ def mul_adaptive_embedding_lookup(
             tables, projs = [], []
             cutoff_ends = [0] + cutoffs + [n_token]
             x_size = tf.shape(x)
-            if perms is None:
-                cat_lookup = []
-            else:
-                cat_lookup = tf.zeros([x_size[0], x_size[1], d_proj])
+            cat_lookup = [] if perms is None else tf.zeros([x_size[0], x_size[1], d_proj])
             for i in range(len(cutoff_ends) - 1):
-                with tf.variable_scope('cutoff_{}'.format(i)):
+                with tf.variable_scope(f'cutoff_{i}'):
                     l_idx, r_idx = cutoff_ends[i], cutoff_ends[i + 1]
                     cur_d_embed = d_embed // (div_val ** i)
                     lookup_table = tf.get_variable(
@@ -256,28 +253,25 @@ def mul_adaptive_embedding_lookup(
                         cat_lookup.append(
                             tf.einsum('ie,ed->id', lookup_table, proj_W)
                         )
+                    elif i == 0:
+                        cur_y = embedding_lookup(
+                            lookup_table, tf.minimum(x, r_idx - 1)
+                        )
+                        if proj_W is not None:
+                            cur_y = tf.einsum('ibe,ed->ibd', cur_y, proj_W)
+                        cur_y *= perms[i][:, :, None]
+                        cat_lookup += cur_y
                     else:
-                        # speed up the computation of the first bin
-                        # also save some meory
-                        if i == 0:
-                            cur_y = embedding_lookup(
-                                lookup_table, tf.minimum(x, r_idx - 1)
-                            )
-                            if proj_W is not None:
-                                cur_y = tf.einsum('ibe,ed->ibd', cur_y, proj_W)
-                            cur_y *= perms[i][:, :, None]
-                            cat_lookup += cur_y
-                        else:
-                            cur_x = tf.einsum(
-                                'ib,ibk->k', tf.to_float(x - l_idx), perms[i]
-                            )
-                            cur_x = tf.to_int32(cur_x)
-                            cur_y = embedding_lookup(lookup_table, cur_x)
-                            if proj_W is not None:
-                                cur_y = tf.einsum('ke,ed->kd', cur_y, proj_W)
-                            cat_lookup += tf.einsum(
-                                'kd,ibk->ibd', cur_y, perms[i]
-                            )
+                        cur_x = tf.einsum(
+                            'ib,ibk->k', tf.to_float(x - l_idx), perms[i]
+                        )
+                        cur_x = tf.to_int32(cur_x)
+                        cur_y = embedding_lookup(lookup_table, cur_x)
+                        if proj_W is not None:
+                            cur_y = tf.einsum('ke,ed->kd', cur_y, proj_W)
+                        cat_lookup += tf.einsum(
+                            'kd,ibk->ibd', cur_y, perms[i]
+                        )
                     tables.append(lookup_table)
                     projs.append(proj_W)
             if perms is None:
@@ -342,20 +336,14 @@ def mask_adaptive_logsoftmax(
                     cur_target = tf.boolean_mask(target, mask) - l_idx
                     cur_d_embed = d_embed // (div_val ** i)
 
-                    if div_val == 1:
-                        cur_W = params_W[l_idx:r_idx]
-                    else:
-                        cur_W = params_W[i]
+                    cur_W = params_W[l_idx:r_idx] if div_val == 1 else params_W[i]
                     cur_b = tf.get_variable(
                         'b',
                         [r_idx - l_idx],
                         initializer = tf.zeros_initializer(),
                     )
                     if tie_projs[i]:
-                        if div_val == 1:
-                            cur_proj = params_projs
-                        else:
-                            cur_proj = params_projs[i]
+                        cur_proj = params_projs if div_val == 1 else params_projs[i]
                     else:
                         if (
                             div_val == 1 or not proj_same_dim
@@ -454,20 +442,14 @@ def mul_adaptive_logsoftmax(
 
                     cur_d_embed = d_embed // (div_val ** i)
 
-                    if div_val == 1:
-                        cur_W = params_W[l_idx:r_idx]
-                    else:
-                        cur_W = params_W[i]
+                    cur_W = params_W[l_idx:r_idx] if div_val == 1 else params_W[i]
                     cur_b = tf.get_variable(
                         'b',
                         [r_idx - l_idx],
                         initializer = tf.zeros_initializer(),
                     )
                     if tie_projs[i]:
-                        if div_val == 1:
-                            cur_proj = params_projs
-                        else:
-                            cur_proj = params_projs[i]
+                        cur_proj = params_projs if div_val == 1 else params_projs[i]
                     else:
                         if (
                             div_val == 1 or not proj_same_dim
@@ -641,7 +623,7 @@ def transformer(
             # cache new mems
             new_mems.append(_cache_mem(output, mems[i], mem_len))
 
-            with tf.variable_scope('layer_{}'.format(i)):
+            with tf.variable_scope(f'layer_{i}'):
                 output = rel_multihead_attn(
                     w = output,
                     r = pos_emb,

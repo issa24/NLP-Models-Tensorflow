@@ -182,18 +182,17 @@ class _BaseAttentionMechanism(AttentionMechanism):
         """
         if (query_layer is not None
                 and not isinstance(query_layer, layers_base.Layer)):
-            raise TypeError(
-                "query_layer is not a Layer: %s" % type(query_layer).__name__)
+            raise TypeError(f"query_layer is not a Layer: {type(query_layer).__name__}")
         if (memory_layer is not None
                 and not isinstance(memory_layer, layers_base.Layer)):
-            raise TypeError(
-                "memory_layer is not a Layer: %s" % type(memory_layer).__name__)
+            raise TypeError(f"memory_layer is not a Layer: {type(memory_layer).__name__}")
         self._query_layer = query_layer
         self._memory_layer = memory_layer
         self.dtype = memory_layer.dtype
         if not callable(probability_fn):
-            raise TypeError("probability_fn must be callable, saw type: %s" %
-                            type(probability_fn).__name__)
+            raise TypeError(
+                f"probability_fn must be callable, saw type: {type(probability_fn).__name__}"
+            )
         if score_mask_value is None:
             score_mask_value = dtypes.as_dtype(
                 self._memory_layer.dtype).as_numpy_dtype(-np.inf)
@@ -401,8 +400,7 @@ class LuongAttention(_BaseAttentionMechanism):
         """
         with variable_scope.variable_scope(None, "luong_attention", [query]):
             score = _luong_score(query, self._keys, self._scale)
-        alignments = self._probability_fn(score, previous_alignments)
-        return alignments
+        return self._probability_fn(score, previous_alignments)
 
 
 def _bahdanau_score(processed_query, keys, normalize):
@@ -547,8 +545,7 @@ class BahdanauAttention(_BaseAttentionMechanism):
         with variable_scope.variable_scope(None, "bahdanau_attention", [query]):
             processed_query = self.query_layer(query) if self.query_layer else query
             score = _bahdanau_score(processed_query, self._keys, self._normalize)
-        alignments = self._probability_fn(score, previous_alignments)
-        return alignments
+        return self._probability_fn(score, previous_alignments)
 
 
 def safe_cumprod(x, *args, **kwargs):
@@ -831,8 +828,7 @@ class BahdanauMonotonicAttention(_BaseMonotonicAttentionMechanism):
                 "attention_score_bias", dtype=processed_query.dtype,
                 initializer=self._score_bias_init)
             score += score_bias
-        alignments = self._probability_fn(score, previous_alignments)
-        return alignments
+        return self._probability_fn(score, previous_alignments)
 
 
 class LuongMonotonicAttention(_BaseMonotonicAttentionMechanism):
@@ -931,8 +927,7 @@ class LuongMonotonicAttention(_BaseMonotonicAttentionMechanism):
                 "attention_score_bias", dtype=query.dtype,
                 initializer=self._score_bias_init)
             score += score_bias
-        alignments = self._probability_fn(score, previous_alignments)
-        return alignments
+        return self._probability_fn(score, previous_alignments)
 
 
 class AttentionWrapperState(
@@ -1163,11 +1158,10 @@ class AttentionWrapper(rnn_cell_impl.RNNCell):
         if cell_input_fn is None:
             cell_input_fn = (
                 lambda inputs, attention: array_ops.concat([inputs, attention], -1))
-        else:
-            if not callable(cell_input_fn):
-                raise TypeError(
-                    "cell_input_fn must be callable, saw type: %s"
-                    % type(cell_input_fn).__name__)
+        elif not callable(cell_input_fn):
+            raise TypeError(
+                f"cell_input_fn must be callable, saw type: {type(cell_input_fn).__name__}"
+            )
 
         if attention_layer_size is not None:
             attention_layer_sizes = tuple(
@@ -1209,12 +1203,13 @@ class AttentionWrapper(rnn_cell_impl.RNNCell):
                         final_state_tensor.shape[0].value
                         or array_ops.shape(final_state_tensor)[0])
                 error_message = (
-                        "When constructing AttentionWrapper %s: " % self._base_name +
-                        "Non-matching batch sizes between the memory "
-                        "(encoder output) and initial_cell_state.  Are you using "
-                        "the BeamSearchDecoder?  You may need to tile your initial state "
-                        "via the tf.contrib.seq2seq.tile_batch function with argument "
-                        "multiple=beam_width.")
+                    f"When constructing AttentionWrapper {self._base_name}: "
+                    + "Non-matching batch sizes between the memory "
+                    "(encoder output) and initial_cell_state.  Are you using "
+                    "the BeamSearchDecoder?  You may need to tile your initial state "
+                    "via the tf.contrib.seq2seq.tile_batch function with argument "
+                    "multiple=beam_width."
+                )
                 with ops.control_dependencies(
                         self._batch_size_checks(state_batch_size, error_message)):
                     self._initial_cell_state = nest.map_structure(
@@ -1241,10 +1236,7 @@ class AttentionWrapper(rnn_cell_impl.RNNCell):
            were passed to the constructor as a sequence or the singular element.
         """
         t = tuple(seq)
-        if self._is_multi:
-            return t
-        else:
-            return t[0]
+        return t if self._is_multi else t[0]
 
     @property
     def output_size(self):
@@ -1289,19 +1281,20 @@ class AttentionWrapper(rnn_cell_impl.RNNCell):
             `batch_size` does not match the output size of the encoder passed
             to the wrapper object at initialization time.
         """
-        with ops.name_scope(type(self).__name__ + "ZeroState", values=[batch_size]):
+        with ops.name_scope(f"{type(self).__name__}ZeroState", values=[batch_size]):
             if self._initial_cell_state is not None:
                 cell_state = self._initial_cell_state
             else:
                 cell_state = self._cell.zero_state(batch_size, dtype)
             error_message = (
-                    "When calling zero_state of AttentionWrapper %s: " % self._base_name +
-                    "Non-matching batch sizes between the memory "
-                    "(encoder output) and the requested batch size.  Are you using "
-                    "the BeamSearchDecoder?  If so, make sure your encoder output has "
-                    "been tiled to beam_width via tf.contrib.seq2seq.tile_batch, and "
-                    "the batch_size= argument passed to zero_state is "
-                    "batch_size * beam_width.")
+                f"When calling zero_state of AttentionWrapper {self._base_name}: "
+                + "Non-matching batch sizes between the memory "
+                "(encoder output) and the requested batch size.  Are you using "
+                "the BeamSearchDecoder?  If so, make sure your encoder output has "
+                "been tiled to beam_width via tf.contrib.seq2seq.tile_batch, and "
+                "the batch_size= argument passed to zero_state is "
+                "batch_size * beam_width."
+            )
             with ops.control_dependencies(
                     self._batch_size_checks(batch_size, error_message)):
                 cell_state = nest.map_structure(
@@ -1352,8 +1345,9 @@ class AttentionWrapper(rnn_cell_impl.RNNCell):
           TypeError: If `state` is not an instance of `AttentionWrapperState`.
         """
         if not isinstance(state, AttentionWrapperState):
-            raise TypeError("Expected state to be instance of AttentionWrapperState. "
-                            "Received type %s instead." % type(state))
+            raise TypeError(
+                f"Expected state to be instance of AttentionWrapperState. Received type {type(state)} instead."
+            )
 
         # Step 1: Calculate the true inputs to the cell based on the
         # previous attention value.
@@ -1363,13 +1357,7 @@ class AttentionWrapper(rnn_cell_impl.RNNCell):
 
         cell_batch_size = (
                 cell_output.shape[0].value or array_ops.shape(cell_output)[0])
-        error_message = (
-                "When applying AttentionWrapper %s: " % self.name +
-                "Non-matching batch sizes between the memory "
-                "(encoder output) and the query (decoder output).  Are you using "
-                "the BeamSearchDecoder?  You may need to tile your memory input via "
-                "the tf.contrib.seq2seq.tile_batch function with argument "
-                "multiple=beam_width.")
+        error_message = f"When applying AttentionWrapper {self.name}: Non-matching batch sizes between the memory (encoder output) and the query (decoder output).  Are you using the BeamSearchDecoder?  You may need to tile your memory input via the tf.contrib.seq2seq.tile_batch function with argument multiple=beam_width."
         with ops.control_dependencies(
                 self._batch_size_checks(cell_batch_size, error_message)):
             cell_output = array_ops.identity(
@@ -1382,9 +1370,9 @@ class AttentionWrapper(rnn_cell_impl.RNNCell):
             previous_alignments = [state.alignments]
             previous_alignment_history = [state.alignment_history]
 
-        all_alignments = []
         all_attentions = []
         all_histories = []
+        all_alignments = []
         ## Obtain c_kl_loss (for the current timestep of decoder)
         for i, attention_mechanism in enumerate(self._attention_mechanisms):
             attention, alignments, c_kl_loss = _compute_attention(

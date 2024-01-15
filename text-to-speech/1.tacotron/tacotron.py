@@ -116,12 +116,12 @@ def conv1d_banks(inputs, K = 16, is_training = True, scope = 'conv1d_banks'):
     with tf.variable_scope(scope):
         outputs = tf.layers.conv1d(inputs, embed_size // 2, 1, padding = 'SAME')
         for k in range(2, K + 1):
-            with tf.variable_scope('num_{}'.format(k)):
+            with tf.variable_scope(f'num_{k}'):
                 output = tf.layers.conv1d(
                     inputs, embed_size // 2, k, padding = 'SAME'
                 )
                 outputs = tf.concat((outputs, output), -1)
-        #outputs = bn(outputs, is_training, tf.nn.relu)
+            #outputs = bn(outputs, is_training, tf.nn.relu)
     return outputs
 
 
@@ -177,9 +177,7 @@ class Tacotron:
             enc += prenet_out_encoder
             for i in range(num_highwaynet_blocks):
                 enc = highwaynet(
-                    enc,
-                    num_units = embed_size // 2,
-                    scope = 'encoder-highwaynet-{}'.format(i),
+                    enc, num_units=embed_size // 2, scope=f'encoder-highwaynet-{i}'
                 )
             with tf.variable_scope('encoder-gru', reuse = reuse):
                 cell = tf.contrib.rnn.GRUCell(embed_size // 2)
@@ -255,9 +253,7 @@ class Tacotron:
             dec = tf.layers.dense(dec, embed_size // 2)
             for i in range(4):
                 dec = highwaynet(
-                    dec,
-                    num_units = embed_size // 2,
-                    scope = 'decoder-highwaynet-{}'.format(i),
+                    dec, num_units=embed_size // 2, scope=f'decoder-highwaynet-{i}'
                 )
             with tf.variable_scope('decoder-gru', reuse = reuse):
                 cell = tf.contrib.rnn.GRUCell(embed_size // 2)
@@ -279,6 +275,6 @@ class Tacotron:
         self.loss_att /= self.mask_sum
         self.loss_bd2 = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.Z_hat, 
                                                                           labels=self.Z))
-        
+
         self.loss = self.loss1 + self.loss2 + self.loss_bd1 + self.loss_att + self.loss_bd2
         self.optimizer = tf.train.AdamOptimizer(learning_rate = 1e-3).minimize(self.loss)

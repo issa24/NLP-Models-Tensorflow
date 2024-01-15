@@ -22,14 +22,14 @@ def printable_text(text):
         elif isinstance(text, bytes):
             return text.decode('utf-8', 'ignore')
         else:
-            raise ValueError('Unsupported string type: %s' % (type(text)))
+            raise ValueError(f'Unsupported string type: {type(text)}')
     elif six.PY2:
         if isinstance(text, str):
             return text
         elif isinstance(text, unicode):
             return text.encode('utf-8')
         else:
-            raise ValueError('Unsupported string type: %s' % (type(text)))
+            raise ValueError(f'Unsupported string type: {type(text)}')
     else:
         raise ValueError('Not running on Python2 or Python 3?')
 
@@ -49,10 +49,7 @@ def print_(*args):
 def preprocess_text(
     inputs, lower = False, remove_space = True, keep_accents = False
 ):
-    if remove_space:
-        outputs = ' '.join(inputs.strip().split())
-    else:
-        outputs = inputs
+    outputs = ' '.join(inputs.strip().split()) if remove_space else inputs
     outputs = outputs.replace('``', '"').replace("''", '"')
 
     if six.PY2 and isinstance(outputs, str):
@@ -113,8 +110,7 @@ def encode_ids(sp_model, text, sample = False):
     pieces = encode_pieces(
         sp_model, text, return_unicode = False, sample = sample
     )
-    ids = [sp_model.PieceToId(piece) for piece in pieces]
-    return ids
+    return [sp_model.PieceToId(piece) for piece in pieces]
 
 
 if __name__ == '__main__':
